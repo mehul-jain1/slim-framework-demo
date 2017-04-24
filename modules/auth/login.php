@@ -52,9 +52,14 @@ function check_verify_status(Request $request, Response $response,$next)
   $container['logger']->addInfo("check_verify_status");
   $result = array("status"=>0,"msg"=>"<strong> Oh Snap !</strong>Something went wrong !!");
   $request_params = $request->getParsedBody();
-  if(isset($request_params['mobile_no']) )
+  if(isset($request_params['mobile_no']))
   {
     $mobile_no=trim($request_params['mobile_no']);
+  // }
+  // else if(!is_null($request->getAttribute('mobile_no')))
+  // {
+  //   $mobile_no=intval($request->getAttribute('mobile_no'));
+  // }
     $sql="select `verified_status` from `user` where `mobile_no`=:mobile_no";
     try{
         // Get DB Object
@@ -124,6 +129,55 @@ function fetch_user_data(Request $request, Response $response,$next)
   else {
     $result['msg']='sorry, an error ocurred while logging in..';
     return $response->withStatus(500)->write(json_encode($result));
+  }
+}
+
+function fetch_uid_from_mobile(Request $request, Response $response,$next)
+{
+  global $container;
+  $container['logger']->addInfo("fetching uid  from mobile");
+  $result = array("status"=>0,"msg"=>"<strong> Oh Snap !</strong>Something went wrong !!");
+  $request_params = $request->getParsedBody();
+  // check if uid is set. If not then fetch from mobile no provided
+  if(!isset($request_params['uid']) && isset($request_params['mobile_no']))
+  {
+    $mobile_no=trim($request_params['mobile_no']);
+
+    $sql="select `uid` from `user` where `mobile_no`=:mobile_no";
+    try{
+        // Get DB Object
+        $db = $container['db'];
+        $p_stmt= $db->prepare($sql);
+        $p_stmt->bindParam(":mobile_no",$mobile_no);
+        $p_stmt->execute();
+        if($p_stmt->rowCount()>0)
+        {
+          $row=$p_stmt->fetch(PDO::FETCH_ASSOC);
+          $uid=(int)$row['uid'];
+          $request=$request->withAttribute('uid',$uid); // send uid to next route
+          $response=$next($request, $response);
+          return $response;
+        }
+        else {
+          $result['msg']='Sorry! This User is not registered with us !';
+          return $response->withStatus(302)->write(json_encode($result));
+        }
+    }catch(PDOException $e){
+      $result['msg']=$e->getMessage();
+      return $response->withStatus(403)->write(json_encode($result));
+    }
+  }
+  else {
+    if(isset($request_params['uid']))
+    {
+      $response=$next($request, $response);
+      return $response;
+    }
+    else
+    {
+      $result['msg']='Please provide uid or mobile no..';
+      return $response->withStatus(302)->write(json_encode($result));
+    }
   }
 }
 ?>
