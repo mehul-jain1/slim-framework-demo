@@ -23,4 +23,15 @@ $app->group("/feed",function() use ($app){
   $app->post('/home/','home_feed')->add('product_category_feed')->add('banner_feed');
   $app->post('/products/','products_feed');
 });
+
+// order and subscription  routes
+$app->group("/order",function() use ($app){
+  require_once  __DIR__ .'/../modules/auth/login.php';
+  require_once  __DIR__ .'/../modules/orders/order.php';
+  require_once  __DIR__ .'/../modules/products/product.php';
+  //require_once  __DIR__ .'/../modules/subscriptions/.php';
+  $app->post('/make/','place_order')->add('check_product_exist')->add('fetch_uid_from_mobile');
+  $app->post('/placed/','placed_orders')->add('fetch_uid_from_mobile');
+  $app->post('/set/','set_order_status')->add('fetch_uid_from_mobile');
+});
 ?>
