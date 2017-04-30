@@ -17,15 +17,15 @@ $container['logger'] = function($container) {
     $logger->pushHandler($file_handler);
     return $logger;
 };
-// mysql db 
+// mysql db
 $container['db']=connectPDO();
 
 function connectPDO($db_no=0)
 {
-    $dbname = array("gaudugdh_ios");
-    $dbhost = array("gaudugdham.com");
-    $dbuser = array("gaudugdh_user");
-    $dbpass = array("apiios@gaudugdham");
+    $dbname = array("");
+    $dbhost = array("");
+    $dbuser = array("");
+    $dbpass = array("");
 
     try {
       $dbh=new PDO('mysql:host='.$dbhost[$db_no].';dbname='.$dbname[$db_no], $dbuser[$db_no], $dbpass[$db_no]);
