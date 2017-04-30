@@ -24,14 +24,32 @@ $app->group("/feed",function() use ($app){
   $app->post('/products/','products_feed');
 });
 
-// order and subscription  routes
+// order  routes
 $app->group("/order",function() use ($app){
   require_once  __DIR__ .'/../modules/auth/login.php';
   require_once  __DIR__ .'/../modules/orders/order.php';
   require_once  __DIR__ .'/../modules/products/product.php';
-  //require_once  __DIR__ .'/../modules/subscriptions/.php';
   $app->post('/make/','place_order')->add('check_product_exist')->add('fetch_uid_from_mobile');
-  $app->post('/placed/','placed_orders')->add('fetch_uid_from_mobile');
   $app->post('/set/','set_order_status')->add('fetch_uid_from_mobile');
 });
+
+// subscription  routes
+$app->group("/subscription",function() use ($app){
+  require_once  __DIR__ .'/../modules/auth/login.php';
+  require_once  __DIR__ .'/../modules/products/product.php';
+  require_once  __DIR__ .'/../modules/subscriptions/subscription.php';
+  $app->post('/add/','add_subscription')->add('check_product_subscribable')->add('fetch_uid_from_mobile');
+  $app->post('/edit/','edit_subscription')->add('check_subscription_exists')->add('fetch_uid_from_mobile');
+  $app->post('/set/','set_subscription_status')->add('fetch_uid_from_mobile');
+});
+
+// my orders and subscription routes
+$app->group("/orders",function() use ($app){
+  require_once  __DIR__ .'/../modules/auth/login.php';
+  require_once  __DIR__ .'/../modules/orders/order.php';
+  require_once  __DIR__ .'/../modules/products/product.php';
+  require_once  __DIR__ .'/../modules/subscriptions/subscription.php';
+  $app->post('/placed/','my_orders')->add('placed_subscriptions')->add('placed_orders')->add('fetch_uid_from_mobile');
+});
+
 ?>
