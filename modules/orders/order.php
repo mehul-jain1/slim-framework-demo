@@ -19,9 +19,7 @@ function place_order(Request $request, Response $response,$next)
         $product_id=intval($request_params['product_id']);
 
       if(isset($request_params['mobile_no']) && $request_params['mobile_no'] !='')
-      $mobile_no=intval($request_params['mobile_no']);
-      else
-      $mobile_no=NULL; // mobile no if provided
+      $mobile_no=trim($request_params['mobile_no']);
 
       if(isset($request_params['product_quantity']) && $request_params['product_quantity']!='' )
         $product_quantity=intval($request_params['product_quantity']);
@@ -43,7 +41,8 @@ function place_order(Request $request, Response $response,$next)
             $ins_q->execute($order_value);
             if($ins_q->rowCount()>0)
             {
-                $result = array("status"=>1,"msg"=>"Order Placed Succesfully !!");
+                $order_id=$db->lastInsertID();
+                $result = array("status"=>1,"order_id"=>$order_id,"msg"=>"Order Placed Succesfully !!");
                 return $response->withStatus(200)->write(json_encode($result));
             }
             else {
@@ -61,7 +60,7 @@ function place_order(Request $request, Response $response,$next)
       }
   }
 }
-function placed_orders(Request $request, Response $response , $next)
+function placed_orders(Request $request, Response $response ,$next)
 {
   global $container;
   $container['logger']->addInfo("Fetching My Orders");
@@ -74,7 +73,7 @@ function placed_orders(Request $request, Response $response , $next)
       $uid=intval($request_params['uid']);
     else
       $uid=intval($request->getAttribute('uid'));
-      $sql="select o.`order_id`, o.`mobile_no`,o.`product_id` ,o.`initated_time`,o.`updated_time`,o.`order_status`,o.`product_quantity`,p.`product_name`,p.`product_img_url`,p.`product_price`,p.`product_price_quantity`,p.`product_quantity_unit` from `orders` o, `products` p where `uid`=:uid and o.`product_id`=p.`product_id` order by `updated_time`,`initated_time` desc		";
+      $sql="select o.`order_id`, o.`mobile_no`,o.`product_id` ,o.`initated_time`,o.`updated_time`,o.`order_status`,o.`product_quantity`,p.`product_name`,p.`product_img_url`,p.`product_price`,p.`product_price_quantity`,p.`product_quantity_unit` from `orders` o, `products` p where `uid`=:uid  and o.`product_id`=p.`product_id` order by `updated_time` desc,`initated_time` desc";
       try{
           // Get DB Object
           $db = $container['db'];
@@ -108,23 +107,27 @@ function placed_orders(Request $request, Response $response , $next)
               }
               $placed_orders[]=$order_row;
             }
-            $result = array("status"=>1,"msg"=>" Placed Orders!","uid"=>$uid,"orders"=>$placed_orders);
-            return $response->withStatus(200)->write(json_encode($result));
+            // $result = array("status"=>1,"msg"=>" Placed Orders!","uid"=>$uid,"orders"=>$placed_orders);
+            // return $response->withStatus(200)->write(json_encode($result));
           }
-          else {
-            $result['msg']='No Orders Placed!!';
-            return $response->withStatus(404)->write(json_encode($result));
-          }
+
+          $request=$request->withAttribute('orders',$placed_orders);
+          $response=$next($request, $response);
+          return $response;
       }catch(PDOException $e){
         $result['msg']=$e->getMessage();
         return $response->withStatus(403)->write(json_encode($result));
       }
   }
+  else {
+    $result['msg']='Error in fetching  Orders';
+    return $response->withStatus(500)->write(json_encode($result));
+  }
 }
 function set_order_status(Request $request, Response $response,$next)
 {
   global $container;
-  $container['logger']->addInfo("Cancelling order");
+  $container['logger']->addInfo("setting  order status");
   $result = array("status"=>0,"msg"=>"<strong> Oh Snap !</strong>Something went wrong !!");
   $request_params = $request->getParsedBody();
   if((isset($request_params['uid']) || !is_null($request->getAttribute('uid'))) && isset($request_params['order_id']) && isset($request_params['order_status']))
@@ -133,15 +136,16 @@ function set_order_status(Request $request, Response $response,$next)
       $uid=intval($request_params['uid']);
     else
       $uid=intval($request->getAttribute('uid'));
-
+    $time=time();
     $order_id=intval($request_params['order_id']);
     $order_status=intval($request_params['order_status']);
-    $sql="update `orders` set `order_status`=:order_status where `order_id`=:order_id and `uid`=:uid";
+    $sql="update `orders` set `order_status`=:order_status ,`updated_time`=:updated_time where `order_id`=:order_id and `uid`=:uid";
     try{
         // Get DB Object
         $db = $container['db'];
         $p_stmt= $db->prepare($sql);
         $p_stmt->bindParam(":order_status",$order_status);
+        $p_stmt->bindParam(":updated_time",$time);
         $p_stmt->bindParam(":order_id",$order_id);
         $p_stmt->bindParam(":uid",$uid);
         $p_stmt->execute();
