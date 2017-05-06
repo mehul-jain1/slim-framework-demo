@@ -22,10 +22,10 @@ $container['db']=connectPDO();
 
 function connectPDO($db_no=0)
 {
-    $dbname = array("");
-    $dbhost = array("");
-    $dbuser = array("");
-    $dbpass = array("");
+  $dbname = array("gaudugdh_ios");
+  $dbhost = array("gaudugdham.com");
+  $dbuser = array("gaudugdh_user");
+  $dbpass = array("apiios@gaudugdham");
 
     try {
       $dbh=new PDO('mysql:host='.$dbhost[$db_no].';dbname='.$dbname[$db_no], $dbuser[$db_no], $dbpass[$db_no]);

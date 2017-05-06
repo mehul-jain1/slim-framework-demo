@@ -51,7 +51,7 @@ function register(Request $request, Response $response)
   //var_dump($data);
 }
 
-function verify_mobile_unique(Request $request, Response $response, Callable $next)
+function verify_mobile_unique(Request $request, Response $response, $next)
 {
     global $container;
     $container['logger']->addInfo("verify_mobile_unique");
@@ -236,4 +236,47 @@ function check_mobile_exists(Request $request, Response $response,$next)
     return $response->withStatus(403)->write(json_encode($result));
   }
 }
-?>
+function sendotp(Request $request, Response $response)
+{
+  global $container;
+  $container['logger']->addInfo("sending otp to user");
+  $result = array("status"=>0,"msg"=>"<strong> Oh Snap !</strong>Something went wrong !!");
+  $request_params = $request->getParsedBody();
+  $otp=mt_rand(1000,9999); // generate 4 digit otp number
+  $otp_msg=$otp." is your BackToRoots OTP. Enter this number on the App and you're all set";
+  $fields = array(
+       'authkey' => "144259AjikbpnmV7MU58c02815",
+       'mobile' => $request_params["mobile_no"],
+       'message' => $otp_msg,
+       'sender'  =>"BTROOTS",
+       'otp' => $otp
+  );
+  $postvars = http_build_query($fields);
+  $url="https://control.msg91.com/api/sendotp.php?".$postvars;
+  // build the urlencoded data
+  // open connection
+  try
+  {
+    $ch = curl_init ($url);
+    if (FALSE === $ch)
+       throw new Exception('failed to initialize');
+    curl_setopt($ch, CURLOPT_HEADER, 0);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 1);
+    $raw = curl_exec($ch);
+    if (FALSE === $raw)
+    throw new Exception(curl_error($ch), curl_errno($ch));
+    curl_close($ch);
+    $raw=(array)json_decode($raw);
+    if($raw['type']=="success")
+      $result = array("status"=>1,"otp"=>(string)$otp,"msg"=>"otp sent succesfully");
+      else
+      $result = array("status"=>1,"msg"=>"failed to send otp ");
+    return $response->withStatus(200)->write(json_encode($result));
+  }
+  catch(Exception $e)
+  {
+    $result['msg']=$e->getMessage();
+    return $response->withStatus(403)->write(json_encode($result));
+  }
+}

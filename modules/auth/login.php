@@ -9,6 +9,7 @@ function login(Request $request, Response $response,$next)
   $request_params = $request->getParsedBody();
   if(isset($request_params['mobile_no']) && isset($request_params['password']))
   {
+
     $mobile_no=trim($request_params['mobile_no']);
     $password=trim($request_params['password']);
     $sql="select `uid`,`password` from `user` where `mobile_no`=:mobile_no";

@@ -7,12 +7,14 @@ use Psr\Http\Message\ResponseInterface as Response;
    require_once  __DIR__ .'/../modules/auth/login.php';
    require_once  __DIR__ .'/../modules/auth/reset.php';
    $app->post('/register/','register')->add('verify_mobile_unique');
+   $app->post('/sendotp/','sendotp')->add('verify_mobile_unique');
    $app->post('/verify/','verify_user')->add('check_mobile_exists');
    $app->post('/login/','fetch_user_data')->add('login')->add('check_verify_status');
-   $app->post('/verify_mobile_unique/','verify_mobile_unique');
+   $app->post('/verify_mobile_unique/','verify_mobile_unique_1');
    $app->post('/forget_password/','forget_password')->add('check_verify_status')->add('check_mobile_exists');
    $app->post('/reset_mobile/','reset_mobile')->add('check_mobile_exists')->add('verify_mobile_unique')->setName('reset_mobile');
    $app->post('/update_profile/','update_profile')->add('check_mobile_exists');
+
  });
 
 // Home page feed routes
@@ -41,6 +43,7 @@ $app->group("/subscription",function() use ($app){
   $app->post('/add/','add_subscription')->add('check_product_subscribable')->add('fetch_uid_from_mobile');
   $app->post('/edit/','edit_subscription')->add('check_subscription_exists')->add('fetch_uid_from_mobile');
   $app->post('/set/','set_subscription_status')->add('fetch_uid_from_mobile');
+  $app->post('/invoice/','fetch_subscription_invoice');
 });
 
 // my orders and subscription routes
@@ -51,5 +54,9 @@ $app->group("/orders",function() use ($app){
   require_once  __DIR__ .'/../modules/subscriptions/subscription.php';
   $app->post('/placed/','my_orders')->add('placed_subscriptions')->add('placed_orders')->add('fetch_uid_from_mobile');
 });
-
+$app->group("/user",function() use ($app){
+  require_once  __DIR__ .'/../modules/auth/login.php';
+  require_once  __DIR__ .'/../modules/profile/profile.php';
+  $app->post('/profile/','fetch_profile_data')->add('orders_count')->add('fetch_uid_from_mobile');
+});
 ?>

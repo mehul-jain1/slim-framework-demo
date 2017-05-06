@@ -25,16 +25,18 @@ function place_order(Request $request, Response $response,$next)
         $product_quantity=intval($request_params['product_quantity']);
       else
         $product_quantity=1; // default quantity single
+      $time=time();
       if(isset($uid))
       {
         try{
             // Get DB Object
             $db = $container['db'];
-            $ins_q=$db->prepare("INSERT INTO `orders`(`uid`,`product_id`,`initated_time`,`product_quantity`,`mobile_no`) VALUES(:uid,:product_id,
-            :initated_time,:product_quantity,:mobile_no)");
+            $ins_q=$db->prepare("INSERT INTO `orders`(`uid`,`product_id`,`initated_time`,`updated_time`,`product_quantity`,`mobile_no`) VALUES(:uid,:product_id,
+            :initated_time,:updated_time,:product_quantity,:mobile_no)");
             $order_value=array(':uid'=>$uid,
                              ':product_id'=>$product_id,
-                             ':initated_time'=>time(),
+                             ':initated_time'=>$time,
+                             ':updated_time'=>$time,
                              ':product_quantity'=>$product_quantity,
                              ':mobile_no'=>$mobile_no
                             );
@@ -63,6 +65,7 @@ function place_order(Request $request, Response $response,$next)
 function placed_orders(Request $request, Response $response ,$next)
 {
   global $container;
+  date_default_timezone_set('Asia/Kolkata');
   $container['logger']->addInfo("Fetching My Orders");
   $result = array("status"=>0,"msg"=>"<strong> Oh Snap !</strong>Something went wrong !!");
   $request_params = $request->getParsedBody();
@@ -73,7 +76,7 @@ function placed_orders(Request $request, Response $response ,$next)
       $uid=intval($request_params['uid']);
     else
       $uid=intval($request->getAttribute('uid'));
-      $sql="select o.`order_id`, o.`mobile_no`,o.`product_id` ,o.`initated_time`,o.`updated_time`,o.`order_status`,o.`product_quantity`,p.`product_name`,p.`product_img_url`,p.`product_price`,p.`product_price_quantity`,p.`product_quantity_unit` from `orders` o, `products` p where `uid`=:uid  and o.`product_id`=p.`product_id` order by `updated_time` desc,`initated_time` desc";
+      $sql="select o.`order_id`, o.`mobile_no`,o.`product_id` ,o.`initated_time`,o.`updated_time`,o.`order_status`,o.`product_quantity`,p.`product_name`,p.`product_img_url`,p.`product_price`,p.`product_price_quantity`,p.`product_quantity_unit` from `orders` o, `products` p where `uid`=:uid  and o.`product_id`=p.`product_id` order by `updated_time` desc";
       try{
           // Get DB Object
           $db = $container['db'];
@@ -99,6 +102,7 @@ function placed_orders(Request $request, Response $response ,$next)
                 $order_row['time']=$order_row['updated_time'];
                 else
                 $order_row['time']=$order_row['initated_time'];
+                $order_row['time']=date("F j, Y, g:i a",$order_row['time']);
                 //unset unwanted vars
                 unset($order_row['product_price_quantity']);
                 unset($order_row['product_quantity_unit']);

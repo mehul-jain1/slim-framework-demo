@@ -211,6 +211,8 @@ function process_subscription_type(Request $request, Response $response,$subscri
       if(isset($request_params['quantity_week']))
       {
         $quantity_default_week=explode(',',$request_params['quantity_week']);
+
+        // for above 9 pm the quantity for next day can not be changed so discarding from updating
         if(intval(date('Hi')) >= intval($checkTime))
         {
           $current_day_index=get_current_day_index();
@@ -221,10 +223,11 @@ function process_subscription_type(Request $request, Response $response,$subscri
           if(isset($current_week_list[$current_day_index]))
           {
             $quantity_default_week[$current_day_index]=$current_week_list[$current_day_index];
-            var_dump($quantity_default_week);
+            // var_dump($quantity_default_week);
           }
         }
-        // explore week
+
+        // else  explore week
         for($i=0;$i<7;$i++)
         {
           if(isset($quantity_default_week[$i]))
@@ -269,16 +272,18 @@ function insert_subscription(Request $request, Response $response,$subscription_
     $mobile_no=trim($request_params['mobile_no']);
   else
     $mobile_no=NULL; // mobile no if provided
+  $time=time();
   if(isset($uid))
   {
     try{
         // Get DB Object
         $db = $container['db'];
-        $ins_q=$db->prepare("INSERT INTO `subscriptions`(`uid`,`product_id`,`initiated_time`,`quantity_default_week`,`quantity_current_week`,`subscription_type`,`mobile_no`) VALUES(:uid,:product_id,
-        :initiated_time,:quantity_default_week,:quantity_current_week,:subscription_type,:mobile_no)");
+        $ins_q=$db->prepare("INSERT INTO `subscriptions`(`uid`,`product_id`,`initiated_time`,`updated_time`,`quantity_default_week`,`quantity_current_week`,`subscription_type`,`mobile_no`) VALUES(:uid,:product_id,
+        :initiated_time,:updated_time,:quantity_default_week,:quantity_current_week,:subscription_type,:mobile_no)");
         $subscription_value=array(':uid'=>$uid,
                          ':product_id'=>$product_id,
-                         ':initiated_time'=>time(),
+                         ':initiated_time'=>$time,
+                         ':updated_time'=>$time,
                          ':quantity_default_week'=>$quantity_default_week,
                          ':quantity_current_week'=>$quantity_default_week, // As understood while placing order default and current week plan are same...
                          ':subscription_type'=>$subscription_type,
@@ -287,7 +292,8 @@ function insert_subscription(Request $request, Response $response,$subscription_
         $ins_q->execute($subscription_value);
         if($ins_q->rowCount()>0)
         {
-            $result = array("status"=>1,"msg"=>"Subscribed Succesfully !! Tip -You can check your Subscriptions in My subscriptions...");
+            $subscription_id=$db->lastInsertID();
+            $result = array("status"=>1,"subscription_id"=>$subscription_id,"msg"=>"Subscribed Succesfully !! Tip -You can check your Subscriptions in My subscriptions...");
             return $response->withStatus(200)->write(json_encode($result));
         }
         else {
@@ -393,13 +399,13 @@ function placed_subscriptions(Request $request, Response $response , $next)
     $placed_subscriptions=array();
     $quantity_current_week=array();
     $product_quantity=array();
-    $checkTime = '2100'; // for editing  subscription
+    $checkTime = '2045'; // for editing  subscription
     if(isset($request_params['uid']) && $request_params['uid'] !='')
       $uid=intval($request_params['uid']);
     else
       $uid=intval($request->getAttribute('uid'));
     $subscription_status=0; // do not fetch cancelled subscriptions
-      $sql="select s.`subscription_id`, s.`mobile_no`,s.`product_id`,s.`quantity_current_week`,s.`initiated_time`,s.`updated_time`,s.`subscription_status`,p.`product_name`,p.`product_img_url`,p.`product_price`,p.`product_price_quantity`,p.`product_quantity_unit` from `subscriptions` s, `products` p where `uid`=:uid  and s.`subscription_status`!=:subscription_status and s.`product_id`=p.`product_id`  order by `updated_time` desc,`initiated_time` desc";
+      $sql="select s.`subscription_id`, s.`subscription_type`,s.`mobile_no`,s.`product_id`,s.`quantity_current_week`,s.`initiated_time`,s.`updated_time`,s.`subscription_status`,p.`product_name`,p.`product_img_url`,p.`product_price`,p.`product_price_quantity`,p.`product_quantity_unit` from `subscriptions` s, `products` p where `uid`=:uid  and s.`subscription_status`!=:subscription_status and s.`product_id`=p.`product_id`  order by `updated_time` desc";
       try{
           // Get DB Object
           $db = $container['db'];
@@ -415,7 +421,11 @@ function placed_subscriptions(Request $request, Response $response , $next)
               if(isset($subscription_row['quantity_current_week']) && $subscription_row['quantity_current_week']!='')
               {
                   $quantity_current_week=explode(',',$subscription_row['quantity_current_week']);
-                  // var_dump($quantity_current_week);
+
+                  /* send qunatity editable status  along with quantity
+                     ediable status 1
+                     not editable status 0
+                   */
                   foreach($quantity_current_week as $quantity)
                   {
                     $product_quantity[]=array("quantity"=>$quantity,"status"=>1);
@@ -428,17 +438,20 @@ function placed_subscriptions(Request $request, Response $response , $next)
                     else
                     $current_day_index+=1;
                     $product_quantity[$current_day_index]["status"]=0;
+                    $product_quantity[$current_day_index]["status_msg"]="Sorry! you can not edit this quantity";
                   }
                   $subscription_row['product_quantity']=$product_quantity;
               }
               // check updated_time if exist else take initated_time
               if(isset($subscription_row['updated_time']) && $subscription_row['updated_time']!='')
-              $subscription_row['time']=$subscription_row['updated_time'];
+              $subscription_row['time']=intval($subscription_row['updated_time']);
               else
-              $subscription_row['time']=$subscription_row['initiated_time'];
+              $subscription_row['time']=intval($subscription_row['initiated_time']);
+              $subscription_row['time']=date("F j, Y, g:i a",$subscription_row['time']);
+
               //unset unwanted vars
               unset($subscription_row['product_price_quantity']);
-              unset($subscription_row['product_quantity_unit']);
+              // unset($subscription_row['product_quantity_unit']);
               unset($subscription_row['initiated_time']);
               unset($subscription_row['quantity_current_week']);
               unset($subscription_row['updated_time']);
@@ -481,6 +494,45 @@ function my_orders(Request $request, Response $response,$next)
     return $response->withStatus(500)->write(json_encode($result));
   }
 }
+function fetch_subscription_invoice(Request $request, Response $response,$next){
+  global $container;
+  $container['logger']->addInfo("fetching subscription invoice");
+  $request_params = $request->getParsedBody();
+  $result = array("status"=>0,"msg"=>"<strong> Oh Snap !</strong>Something went wrong !!");
+  if(isset($request_params['subscription_id']) && $request_params['subscription_id'] !='')
+    $subscription_id=intval($request_params['subscription_id']);
+  if(isset($subscription_id))
+  {
+    $user_data=array();;
+    $subscription_data_sql="select sum(`quantity`) as total_quantity, sum(`price`) as total_amount,s2.`mobile_no`,s2.`uid`,s2.`subscription_type` ,s2.`subscription_status`,s2.`initiated_time` as subscription_created_date ,p.`product_name` from `subscriptions_orders` s1 , `subscriptions` s2 ,products p  where s1.`subscription_id`=s2.`subscription_id` and s2.`product_id`=p.`product_id` and s2.`subscription_id`=:subscription_id and s1.`s_order_status`!=2 order by s1.`initiated_time` desc";
+    try{
+        // Get DB Object
+        $db = $container['db'];
+        $p_stmt= $db->prepare($subscription_data_sql);
+        $p_stmt->bindParam(":subscription_id",$subscription_id);
+        $p_stmt->execute();
+        if($p_stmt->rowCount()>0)
+        {
+            $subscription_invoice_data=$p_stmt->fetch(PDO::FETCH_ASSOC);
+            // convert to human readable date 
+            $subscription_invoice_data['subscription_created_date']=date("F j, Y, g:i a",$subscription_invoice_data['subscription_created_date']);
+            $result = array("status"=>1,"msg"=>"Pending amount!" ,"subscription_invoice_data"=>$subscription_invoice_data);
+            return $response->withStatus(200)->write(json_encode($result));
+        }
+        else {
+          $result['msg']='Oops! no pending amount for this subscription id';
+          return $response->withStatus(404)->write(json_encode($result));
+        }
+    }catch(PDOException $e){
+      $result['msg']=$e->getMessage();
+      return $response->withStatus(500)->write(json_encode($result));
+    }
+  }
+  else {
+    $result['msg']='sorry, Please specify subscription id';
+    return $response->withStatus(500)->write(json_encode($result));
+  }
+}
 function set_default_week_list($quantity_default_week)
 {
   date_default_timezone_set('Asia/Kolkata');
@@ -514,7 +566,7 @@ function set_default_week_list($quantity_default_week)
     $current_day_index=0;
       break;
   }
-  if($current_day_index>=6) // set from next day 
+  if($current_day_index>=6) // set from next day
   $current_day_index=0;
   else
   $current_day_index++;
