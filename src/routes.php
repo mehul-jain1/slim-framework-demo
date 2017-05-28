@@ -59,4 +59,13 @@ $app->group("/user",function() use ($app){
   require_once  __DIR__ .'/../modules/profile/profile.php';
   $app->post('/profile/','fetch_profile_data')->add('orders_count')->add('fetch_uid_from_mobile');
 });
+
+$app->group("/cms-api",function() use ($app){
+  require_once  __DIR__ .'/../modules/cms/backend.php';
+  $app->post('/set_order/','set_order');
+  $app->post('/set_order_subscription/','set_order_sub_status');
+  $app->post('/set_subscription/','set_subscription');
+  $app->post('/set_user/','set_user');
+});
+
 ?>

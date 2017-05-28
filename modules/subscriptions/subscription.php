@@ -497,6 +497,7 @@ function my_orders(Request $request, Response $response,$next)
 function fetch_subscription_invoice(Request $request, Response $response,$next){
   global $container;
   $container['logger']->addInfo("fetching subscription invoice");
+  date_default_timezone_set('Asia/Kolkata');
   $request_params = $request->getParsedBody();
   $result = array("status"=>0,"msg"=>"<strong> Oh Snap !</strong>Something went wrong !!");
   if(isset($request_params['subscription_id']) && $request_params['subscription_id'] !='')
@@ -504,7 +505,7 @@ function fetch_subscription_invoice(Request $request, Response $response,$next){
   if(isset($subscription_id))
   {
     $user_data=array();;
-    $subscription_data_sql="select sum(`quantity`) as total_quantity, sum(`price`) as total_amount,s2.`mobile_no`,s2.`uid`,s2.`subscription_type` ,s2.`subscription_status`,s2.`initiated_time` as subscription_created_date ,p.`product_name` from `subscriptions_orders` s1 , `subscriptions` s2 ,products p  where s1.`subscription_id`=s2.`subscription_id` and s2.`product_id`=p.`product_id` and s2.`subscription_id`=:subscription_id and s1.`s_order_status`!=2 order by s1.`initiated_time` desc";
+    $subscription_data_sql="select sum(`quantity`) as total_quantity, sum(`price`) as total_amount,s2.`mobile_no`,s2.`uid`,s2.`subscription_type` ,s2.`subscription_status`,s2.`initiated_time` as subscription_created_date ,p.`product_name`,p.`product_price`,p.`product_quantity_unit` from `subscriptions_orders` s1 , `subscriptions` s2 ,products p  where s1.`subscription_id`=s2.`subscription_id` and s2.`product_id`=p.`product_id` and s2.`subscription_id`=:subscription_id and s1.`s_order_status`!=2 order by s1.`initiated_time` desc";
     try{
         // Get DB Object
         $db = $container['db'];
@@ -514,7 +515,12 @@ function fetch_subscription_invoice(Request $request, Response $response,$next){
         if($p_stmt->rowCount()>0)
         {
             $subscription_invoice_data=$p_stmt->fetch(PDO::FETCH_ASSOC);
-            // convert to human readable date 
+            if(!isset($subscription_invoice_data['total_quantity']) || $subscription_invoice_data['total_quantity']==null)
+            $subscription_invoice_data['total_quantity']=0;
+            if(!isset($subscription_invoice_data['total_amount']) || $subscription_invoice_data['total_amount']==null)
+            $subscription_invoice_data['total_amount']=0;
+
+            // convert to human readable date
             $subscription_invoice_data['subscription_created_date']=date("F j, Y, g:i a",$subscription_invoice_data['subscription_created_date']);
             $result = array("status"=>1,"msg"=>"Pending amount!" ,"subscription_invoice_data"=>$subscription_invoice_data);
             return $response->withStatus(200)->write(json_encode($result));
@@ -648,9 +654,9 @@ function fetch_s_subscription_status_msg($subscription_status)
   if($subscription_status==0)
   $msg="subscription Cancelled Succesfully";
   if($subscription_status==1)
-  $msg="subscription Placed Succesfully";
+  $msg="subscription started Succesfully";
   if($subscription_status==2)
-  $msg="subscription Delivered Succesfully";
+  $msg="subscription stopped Succesfully";
   return $msg;
 }
 function fetch_e_subscription_status_msg($subscription_status)
@@ -658,9 +664,9 @@ function fetch_e_subscription_status_msg($subscription_status)
   if($subscription_status==0)
   $msg="error in cancelling subscription";
   if($subscription_status==1)
-  $msg="error in placing subscription";
+  $msg="error in starting  subscription";
   if($subscription_status==2)
-  $msg="error in delvering subscription";
+  $msg="error in stopping subscription";
   return $msg;
 }
 function get_current_day_index()
